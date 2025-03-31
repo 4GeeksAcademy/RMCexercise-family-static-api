@@ -7,32 +7,32 @@ from datastructures import FamilyStructure
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 CORS(app)
+
 jackson_family = FamilyStructure("Jackson")
 
-John = {
+jackson_family.add_member({
+    "id": 1,
     "first_name": "John",
     "last_name": jackson_family.last_name,
     "age": 33,
     "lucky_numbers": [7, 13, 22]
-}
+})
 
-Jane = {
+jackson_family.add_member({
+    "id": 2,
     "first_name": "Jane",
     "last_name": jackson_family.last_name,
     "age": 35,
     "lucky_numbers": [10, 14, 3]
-}
+})
 
-Jimmy = {
+jackson_family.add_member({
+    "id": 3,
     "first_name": "Jimmy",
     "last_name": jackson_family.last_name,
     "age": 5,
     "lucky_numbers": [1]
-}
-
-jackson_family.add_member(John)
-jackson_family.add_member(Jane)
-jackson_family.add_member(Jimmy)
+})
 
 @app.route('/')
 def sitemap():
@@ -40,21 +40,12 @@ def sitemap():
 
 @app.route('/members', methods=['GET'])
 def get_all_members():
-    members = jackson_family.get_all_members()
-    members = [member for member in members] 
-    return jsonify(members), 200
+    return jsonify(jackson_family.get_all_members()), 200
 
 @app.route('/member/<int:id>', methods=['GET'])
 def get_single_member(id):
     member = jackson_family.get_member(id)
-    if member:
-        member = {
-            "name": member["first_name"] + " " + member["last_name"],
-            "id": id,
-            "age": member["age"],
-            "lucky_numbers": member["lucky_numbers"]
-        }
-    if member is None:
+    if not member:
         return jsonify({
             "first_name": None,
             "last_name": None,
@@ -67,17 +58,25 @@ def get_single_member(id):
 
 @app.route('/member', methods=['POST'])
 def create_member():
-    member = request.json
-    member["id"] = jackson_family._generate_id()  # Assuming _generate_id exists in FamilyStructure
+    if not request.is_json:
+        return jsonify({"error": "El request debe ser JSON"}), 400
+
+    member = request.get_json()
+
+    required_fields = ["first_name", "id", "age", "lucky_numbers"]
+    if not all(field in member for field in required_fields):
+        return jsonify({"error": "Campos requeridos: first_name, id, age, lucky_numbers"}), 400
+
+    if jackson_family.get_member(member["id"]):
+        return jsonify({"error": "ID ya existe"}), 400
+
     jackson_family.add_member(member)
-    return jsonify({"message": "Agregado", "familiar": member}), 200
+    return jsonify({"message": "Miembro agregado", "familiar": member}), 200
 
 @app.route('/member/<int:id>', methods=['DELETE'])
 def delete_single_member(id):
-    member = jackson_family.get_member(id)
-    jackson_family.delete_member(id)
-    return jsonify({"message": f"El familiar con el id {id} fue eliminado", "done": True}), 200
-
+    jackson_family.delete_member(id) 
+    return jsonify({"message": f"El familiar con ID {id} fue eliminado", "done": True}), 200
 
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3000))
